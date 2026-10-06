@@ -4,7 +4,7 @@ An operating layer for [Grok Build](https://x.ai/cli): four routed model seats, 
 
 The Grok binary, its tools, and its model client are xAI's. This repository is the layer around that binary. Fork it, change the seats and the policy, and install it onto your own `~/.grok`.
 
-Measured on the author's machine from 12 Aug 2026 through 6 Oct 2026: **3,051** inferences across **197** sessions. **2,872** of those rows are priced on DeepSeek's published rate card, about **$3.23**, and **98.5%** of those prompt tokens were cache hits (432.4M of 438.8M). The ledger file is local and is not in this repo. The figures above are a snapshot, not a promise about your bill.
+Measured on my machine from 12 Aug 2026 through 6 Oct 2026: **3,051** inferences across **197** sessions. **2,872** of those rows are priced on DeepSeek's published rate card, about **$3.23**, and **98.5%** of those prompt tokens were cache hits (432.4M of 438.8M). The ledger file is local and is not in this repo. The figures above are a snapshot, not a promise about your bill.
 
 ## Install it on your Grok
 

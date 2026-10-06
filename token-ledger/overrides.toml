@@ -1,0 +1,28 @@
+# Auto-tuner manual overrides.
+# Anything pinned here is never changed by tuner.py. Uncomment to pin.
+# The tuner re-reads this file on every pass; no restart needed.
+
+# [context_window]
+# Pin the window (in tokens) for any seat by its section name after "model.".
+# Pinned 2026-09-10: every seat runs a 500000 window. The pins stop the
+# raise-only tuner drifting them up to WINDOW_CAP (524288).
+[context_window]
+deepseek-flash = 500000
+deepseek-flash-high = 500000
+# These two seats are declared as [model."grok-4.5"] and the tuner strips only the
+# "model." prefix, so the key it looks up still carries the quote characters.
+'"grok-4.5"' = 500000
+'"grok-4.6"' = 500000
+
+# [reasoning]
+# default_reasoning_effort = "low"
+
+# [mcp]
+# paper = false
+# gemini-docs = false
+
+[free_models]
+# Seats that cost nothing to run. The ledger excludes these from the estimated
+# USD totals. Add the exact model string the seat reports (signals.json
+# primaryModelId). Empty since 2026-09-10: every remaining seat is billed.
+models = []

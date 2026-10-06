@@ -1,0 +1,4 @@
+# Store every file byte-for-byte. The harness has already been broken once by
+# line-ending translation (literal backslash-r escapes landing in config.toml),
+# so no EOL normalization is allowed on checkout.
+* -text

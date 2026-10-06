@@ -1,0 +1,219 @@
+# LEAN / token-lean profile - design MCP OFF, trimmed skills.
+# Design tools: /mcp-design-on  |  Apply: switch-profile.ps1 lean
+
+[cli]
+installer = "internal"
+
+[ui]
+max_thoughts_width = 120
+fork_secondary_model = "grok-build"
+yolo = false
+compact_mode = false
+permission_mode = "always-approve"
+theme = "oscura-midnight"
+
+[marketplace]
+official_marketplace_auto_installed = true
+default_skills_installs_purged = true
+
+[[marketplace.sources]]
+name = "xAI Official"
+git = "https://github.com/xai-org/plugin-marketplace.git"
+
+[plugins]
+enabled = []
+
+[models]
+default = "deepseek-flash"
+default_reasoning_effort = "medium"
+web_search = "grok-4.6"
+
+[features]
+web_fetch = true
+
+[session]
+auto_compact_threshold_percent = 85
+
+[compaction.pruning]
+# Tool results dominate context on tool-heavy sessions and are re-runnable, so
+# trim them earlier than the stock defaults (4000 chars / 10 turns).
+keep_last_n_turns = 2
+soft_trim_threshold = 2000
+soft_trim_head = 700
+soft_trim_tail = 700
+hard_clear_age_turns = 6
+
+[model.deepseek-flash]
+model = "deepseek-flash"
+base_url = "https://api.deepseek.com"
+supports_backend_search = true
+name = "DeepSeek V4.1 Flash"
+description = "Native multimodal V4.1 Flash (direct api.deepseek.com). Sees images in user messages. No strip-proxy."
+env_key = "DEEPSEEK_API_KEY"
+api_backend = "chat_completions"
+context_window = 500000
+max_completion_tokens = 8192
+supports_reasoning_effort = true
+reasoning_effort = "low"
+
+[model.deepseek-flash-high]
+model = "deepseek-flash"
+base_url = "https://api.deepseek.com"
+supports_backend_search = true
+name = "DeepSeek V4.1 Flash (High effort)"
+description = "Same V4.1 Flash, higher reasoning effort. Direct api.deepseek.com."
+env_key = "DEEPSEEK_API_KEY"
+api_backend = "chat_completions"
+context_window = 500000
+max_completion_tokens = 16384
+supports_reasoning_effort = true
+reasoning_effort = "high"
+
+[subagents]
+enabled = true
+
+[subagents.models]
+explore = "deepseek-flash"
+plan = "grok-4.5"
+
+[subagents.personas.reviewer]
+description = "High-judgment code/spec review and nasty-bug analysis on Grok 4.5"
+model = "grok-4.5"
+reasoning_effort = "high"
+instructions = """
+You are Grok: senior judgment for a DeepSeek implementer parent.
+
+Use for: code/spec review, nasty/hard/flaky bugs, security, architecture calls.
+Be concise. Cite file paths. Prefer actionable findings over praise.
+
+If reviewing: return summary, blockers, nits, go/no-go.
+If debugging: return ranked root-cause hypotheses, evidence steps, minimal fix plan, risks.
+Do not dump huge rewrites — hand the parent a clear plan they can execute.
+"""
+
+[subagents.personas.planner]
+description = "Architecture and implementation planning on Grok 4.5 (DeepSeek implements after)"
+model = "grok-4.5"
+reasoning_effort = "high"
+instructions = """
+You are Grok planning for a DeepSeek implementer. Do not implement large code changes.
+
+When the user wants a plan, approach, or architecture:
+1. Goals and non-goals
+2. Ordered steps with files/areas and acceptance checks
+3. Risks and open questions
+4. Smallest vertical slice for DeepSeek to build first
+
+Keep the plan short, sequenced, and executable. No fluff.
+"""
+
+[subagents.personas.drafter]
+description = "Bulk implementation on DeepSeek Flash"
+model = "deepseek-flash"
+reasoning_effort = "low"
+instructions = """
+You implement concrete code changes quickly and carefully.
+Stay scoped to the task. Run tests when available. Summarize files changed and residual risks."""
+
+[skills]
+# Token-lean default: heavy/niche skills disabled. Design skills re-enabled by /mcp-design-on.
+ignore = ["~/.agents/skills/code-review", "~/.agents/skills/diagnosing-bugs", "~/.agents/skills/find-skills", "~/.agents/skills/here-now", "~/.agents/skills/resolving-merge-conflicts", "~/.agents/skills/tdd"]
+disabled = [
+    "create-workflow",
+    "design",
+    "docx",
+    "execute-plan",
+    "firecrawl",
+    "firecrawl-agent",
+    "firecrawl-build",
+    "firecrawl-build-interact",
+    "firecrawl-build-onboarding",
+    "firecrawl-build-scrape",
+    "firecrawl-build-search",
+    "firecrawl-company-directories",
+    "firecrawl-competitive-intel",
+    "firecrawl-crawl",
+    "firecrawl-dashboard-reporting",
+    "firecrawl-deep-research",
+    "firecrawl-demo-walkthrough",
+    "firecrawl-download",
+    "firecrawl-interact",
+    "firecrawl-knowledge-base",
+    "firecrawl-knowledge-ingest",
+    "firecrawl-lead-gen",
+    "firecrawl-lead-research",
+    "firecrawl-map",
+    "firecrawl-market-research",
+    "firecrawl-monitor",
+    "firecrawl-parse",
+    "firecrawl-qa",
+    "firecrawl-research-index",
+    "firecrawl-research-papers",
+    "firecrawl-scrape",
+    "firecrawl-search",
+    "firecrawl-seo-audit",
+    "firecrawl-shop",
+    "firecrawl-website-design-clone",
+    "firecrawl-workflows",
+    "game-animation-frames",
+    "game-asset-core",
+    "game-character-consistency",
+    "game-tilesets",
+    "game-ui-icons",
+    "implement",
+    "neon",
+    "neon-postgres",
+    "neon-postgres-branches",
+    "pdf",
+    "pptx",
+    "pr-babysit",
+    "quiet-interfaces",
+    "resume-claude",
+    "resume-codex",
+    "resume-cursor",
+    "skill-design-principles",
+    "tldraw-offline",
+]
+paths = []
+server_skill_dirs = []
+bundled_skill_dirs = []
+
+[compat.claude]
+skills = false
+
+[compat.cursor]
+skills = false
+
+# Design MCPs OFF by default (token-lean). Toggle: /mcp-design-on | /mcp-design-off
+# Placeholder paths. Point these at a local Open Design install before enabling the server.
+[mcp_servers.open-design]
+command = 'C:\Path\To\Open Design\Open Design.exe'
+args = [
+    'C:\Path\To\Open Design\resources\app\prebundled\daemon\daemon-cli.mjs',
+    "mcp",
+]
+enabled = false
+
+[mcp_servers.open-design.env]
+ELECTRON_RUN_AS_NODE = "1"
+OD_DATA_DIR = 'C:\Path\To\Open Design Data\namespaces\release-stable-win\data'
+OD_SIDECAR_IPC_PATH = '\\.\pipe\open-design-release-stable-win-daemon'
+OD_MCP_BOOTSTRAP_COMMAND = 'C:\Path\To\Open Design\Open Design.exe'
+OD_MCP_BOOTSTRAP_ARGS = '["--headless"]'
+
+[mcp_servers.paper]
+url = "http://127.0.0.1:29979/mcp"
+enabled = false
+
+[mcp_servers.exa]
+url = "https://mcp.exa.ai/mcp?tools=web_search_exa,web_fetch_exa"
+enabled = true
+
+[model."grok-4.5"]
+context_window = 500000
+
+[model."grok-4.6"]
+context_window = 500000
+
+[privacy]
+privacy_banner_acked = "2026-08-13T11:54:17Z"

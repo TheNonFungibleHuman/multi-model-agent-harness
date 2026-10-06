@@ -123,14 +123,6 @@ On a machine that has `~/grok-skill-shelf/core`, the harness check expects that 
 
 **Retired local proxies stay retired.** Earlier seats reached providers through localhost shims on ports 8787 (DeepSeek), 8788 (Gemini), 8789 (Zen), and 8791 (a Zen relay). The current seats talk to the provider directly. `verify_harness.py` fails if any of those ports is listening or if a `zen-relay` folder comes back. `start-grok.ps1` does not start them.
 
-## Resume
-
-Built a multi-model operating layer for a terminal coding agent: four direct provider seats, three config profiles, and junction-linked skill packs, with routing policy checked in as skills the agent follows.
-
-Wrote a Python ledger and auto-tuner that record per-inference cost (3,051 runs across 197 sessions on the author's machine) and adjust context windows and reasoning effort from that evidence, with hard bounds, a dry-run, override pins, and a TOML parse gate before any write.
-
-Caught a class of config drift with a carry-forward switch and a test that restores the live file in a `finally` block, and replaced an estimated token saving with a measurement: 14 slash-only skills cost about 2 prompt tokens, where a static guess had said hundreds.
-
 ## Scope
 
 Claim the routing policy, the profile and shelf switches, the ledger, the tuner, and the checks. The agent runtime is a third-party product. Skill packs such as the Matt Pocock set are used on the author's machine and are not included here; `SHELF_CORE` in the verifiers names them so a machine that has the shelf still has to match it.

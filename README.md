@@ -1,21 +1,30 @@
-# Multi-model agent harness
+# Operating layer for Grok Build
 
-An operating layer for [Grok Build](https://x.ai/cli): four routed model seats, switchable config profiles, a 33-skill on-demand catalog, a Pencil-first design gate, and two Python daemons that record token cost and edit the live config from measured evidence. A small verification suite and a scheduled integrity canary check that the install still matches the rules in this repo.
+[Grok Build](https://x.ai/cli) is the underlying terminal coding assistant. This repository is the layer I built around it: model routing, cost telemetry, quality gates, and a design-review workflow. It does not ship Grok Build, the models, API keys, or personal session data.
 
-The Grok binary, its tools, and its model client are xAI's. This repository is the layer around that binary. Fork it, change the seats and the policy, and install it onto your own `~/.grok`.
+## Why this exists
 
-Measured on my machine from 12 Aug 2026 through 18 Oct 2026: **3,000+** inferences across **198** sessions. **2,872** of those rows are priced on DeepSeek's published rate card, about **$3.23**, and **98.5%** of those prompt tokens were cache hits (432.4M of 438.8M). The ledger file is local and is not in this repo. The figures above are a snapshot, not a promise about your bill.
+I kept hitting three problems in AI-assisted development:
 
-## Current state — 19 Oct 2026
+1. **Design was an afterthought.** The UI got built before anyone agreed on the look.
+2. **Every prompt carried skills the task didn't need.** The context was paying for a library it wasn't using.
+3. **Model costs were invisible.** There was no per-session view of what the agent spent or why.
 
-- **Routing:** Flash-first remains the default. A pre-registered experiment found that blanket Pro escalation added only **+1 task (3%) at 1.08× cost**, so it was rejected. Pro is targeted: planning, hard bugs, final review, or a retry after Flash breaks a p2p test or fails twice. The measured policy is in `skills/route` and `skills/delegate`.
-- **Skills:** the model-facing catalog is **33**, not 43. Ten core-shelf skills (`code-review`, `diagnosing-bugs`, `tdd`, `codebase-design`, `domain-modeling`, `find-skills`, `here-now`, `resolving-merge-conflicts`, `wizard`, `writing-for-agents`) are disabled in the catalog and read on demand by `skill-router`. Measured saving: about **1,000 prompt tokens per turn**.
-- **Design:** Pencil-only. The HTML/CSS direction set and its review page are retired. `design-lane.ps1` starts a child session with Pencil (and Inspo when needed), produces 2–3 canvas directions, exports `preview.png`, and restores both MCPs off. The parent session never carries the design tools.
-- **Inspiration:** the lane asks for your references first. If you have none, it uses **Inspo** (`inspomcp.dev`, MIT, free hosted) and synthesizes 2–3 references. It steals principles, not layouts: no 1:1 copies, no borrowed copy/logos/assets, no blind palette copying.
-- **MCP:** Pencil and Inspo are **off by default**. `grok -Design` enables Pencil for a session; `-Inspo` enables Inspo; the design lane enables both for the child and restores them on exit. Normal build turns stay at about **15.9k prompt tokens**.
-- **Hooks:** the Impeccable and anti-slop gates are event-scoped to changed UI files. A non-UI turn costs about 0.3s; a full turn went from **104s to ~12s**. The evidence gate still requires test proof for code extensions; HTML/CSS are exempt.
-- **Safety:** the PreToolUse isolation guard was removed by request; auto-approve is user-managed. The disposable **Windows Sandbox** recipe remains in `sandbox/` for untrusted code.
-- **Verification:** `verify_harness.py` and `verify_skills.py` are CLEAN; `integrity-canary.ps1` hashes 17 policy files and is installed as a daily scheduled task.
+This layer fixes those problems: it reviews 2–3 designs on a pen.dev canvas before code, loads only the 1–3 skills a task needs, and records cost per session. The result is about **1,000 fewer prompt tokens per turn**, design decisions before implementation, and a ledger that shows where spend came from.
+
+## Results at a glance
+
+| Area | What changed | Measured result |
+| --- | --- | --- |
+| Model routing | 4 models, 3 profiles; the expensive model is reserved for planning, hard bugs, and retries | A 33-task benchmark showed blanket escalation solved +1 task (3%) for 8% more cost → the cheap model is the default |
+| Cost telemetry | Async Python service logs every model call and prices it against provider rates | 3,000+ calls across 198 sessions; 2,872 priced; 98.5% cache hit on 438.8M tokens |
+| Skill loading | 10 of 43 always-on skills moved to on-demand routing | ~1,000 fewer prompt tokens per turn |
+| Hook latency | UI-quality checks scoped to files changed in the current task; 17-file integrity canary | 104s → ~12s per turn (8.7×); daily alerts on unexpected changes |
+| Design workflow | pen.dev canvas, 2–3 directions, AI review, design spec before code | Design is reviewed before implementation; HTML mockup and local review page removed |
+| MCP context | Pencil and Inspo off by default; the design lane enables them for a child session | Normal build turns stay at ~15.9k tokens; the parent never carries design tools |
+| Safety | Isolation guard removed; auto-approve user-managed; Windows Sandbox recipe included | Untrusted repos can run in a disposable VM; no hidden path policy |
+
+The cost figures are a snapshot from 12 Aug–18 Oct 2026, not a promise about your bill. The ledger file is local and is not in this repo.
 
 ## Install it on your Grok
 
@@ -182,6 +191,6 @@ copy-pasted 1:1.
 
 ## Scope
 
-Claim the routing policy, the profile and shelf switches, the ledger, the tuner, the design lane, and the checks. The agent runtime is a third-party product. Pencil (pen.dev) and Inspo are third-party MCP servers; their tools, data, and terms are theirs. Skill packs such as the Matt Pocock set are used on the author's machine and are not included here; `SHELF_CORE` in the verifiers names them so a machine that has the shelf still has to match it.
+Claim the routing policy, the profile and shelf switches, the ledger, the tuner, the design lane, and the checks. The agent runtime is a third-party product. Pencil (pen.dev) and Inspo are third-party MCP servers; their tools, data, and terms are theirs. Skill packs such as the Matt Pocock set are used on my machine and are not included here; `SHELF_CORE` in the verifiers names them so a machine that has the shelf still has to match it.
 
 License: MIT.

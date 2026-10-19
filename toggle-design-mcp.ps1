@@ -4,8 +4,8 @@
   Enable/disable design MCP servers (and related design skills) for token-lean Grok.
 
 .DESCRIPTION
-  Default lean profile keeps Paper + Open Design MCP off so new chats do not pay
-  MCP blurb / connection overhead on every turn.
+  Default lean profile can turn pen.dev (pencil) off so new chats do not pay
+  MCP blurb / connection overhead on every turn when you are not designing.
 
   Usage:
     powershell -NoProfile -File $env:USERPROFILE\.grok\toggle-design-mcp.ps1 status
@@ -33,7 +33,7 @@ if (-not (Test-Path -LiteralPath $configPath)) {
 }
 
 # MCP servers controlled by this toggle (gemini-docs stays off)
-$McpServers = @("paper", "open-design")
+$McpServers = @("pencil")
 
 # Skills that only matter for design work
 $DesignSkills = @(
@@ -139,6 +139,16 @@ function Show-Status {
   elseif ($g) { $gl = "ON" }
   else { $gl = "OFF" }
   Write-Host ("  {0,-12} {1}  (not controlled by this toggle; keep OFF unless debugging)" -f "gemini-docs", $gl)
+  $p = Get-McpEnabled -Text $Text -Name "paper"
+  if ($null -eq $p) { $pl = "MISSING" }
+  elseif ($p) { $pl = "ON" }
+  else { $pl = "OFF" }
+  Write-Host ("  {0,-12} {1}  (optional legacy canvas; keep OFF with pen.dev)" -f "paper", $pl)
+  $i = Get-McpEnabled -Text $Text -Name "inspo"
+  if ($null -eq $i) { $il = "MISSING" }
+  elseif ($i) { $il = "ON" }
+  else { $il = "OFF" }
+  Write-Host ("  {0,-12} {1}  (research only; enabled with -Inspo or the design lane)" -f "inspo", $il)
 
   $disabled = @(Get-DisabledSkills -Text $Text)
   $designOn = @()
@@ -215,7 +225,7 @@ if ($Action -eq "" -or $Action -eq "status") {
 if ($Action -eq "on") {
   $text = Enable-DesignMode -Text $text
   Set-ConfigText -Text $text
-  Write-Host "Design MCP: ON (paper + open-design). Design skills re-enabled in config."
+  Write-Host "Design MCP: ON (pencil / pen.dev). Design skills re-enabled in config."
   Write-Host "gemini-docs left OFF."
   Write-Host ""
   Show-Status -Text (Get-ConfigText)

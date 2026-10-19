@@ -32,7 +32,7 @@ Slug from the focus args or a 2–4 word summary of the goal (kebab-case).
 
 - **Date:** …
 - **CWD:** …
-- **Suggested model:** deepseek-flash | deepseek-flash-high | grok-4.6
+- **Suggested model:** deepseek-flash-high | deepseek-pro | deepseek-flash | glm-flash
 - **Focus for next session:** <from user args if any>
 
 ## Goal

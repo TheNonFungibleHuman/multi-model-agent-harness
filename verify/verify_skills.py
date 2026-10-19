@@ -14,16 +14,22 @@ GROK = os.path.join(os.environ["USERPROFILE"], ".grok", "bin", "grok.exe")
 
 POLICY = {
     "route", "delegate", "web-search", "capture-lesson", "handoff", "pull-handoff",
+    "skill-router", "product-build",
 }
 TOGGLES = {
     "shelf-core-on", "shelf-design-on", "shelf-extras-on", "shelf-firecrawl-on",
-    "shelf-matt-on", "shelf-off", "shelf-status", "shelf-video-on",
+    "shelf-matt-on", "shelf-pstack-on", "shelf-off", "shelf-status", "shelf-video-on",
     "mcp-design-on", "mcp-design-off", "mcp-design-status",
     "profile-full", "profile-lean", "profile-status",
 }
 BUNDLED = {
-    "build-with-ai", "create-skill", "imagine", "learn", "long-running-background-tasks",
-    "review", "statusline",
+    "build-with-ai", "create-skill", "imagine", "implement", "learn",
+    "long-running-background-tasks", "review", "statusline",
+}
+# The author's own user skills, kept model-invocable on purpose.
+# Counted only when present, so a clone without them still passes.
+USER_SKILLS = {
+    "local-preview", "token-discipline",
 }
 # Third-party skills. Required only when the core shelf pack is installed.
 SHELF_CORE = {
@@ -43,7 +49,8 @@ by_name = {s["name"]: s for s in skills}
 enabled = {s["name"] for s in skills if not s.get("disabled")}
 shelf_core = pathlib.Path.home() / "grok-skill-shelf" / "core"
 core = POLICY | (SHELF_CORE if shelf_core.is_dir() else set())
-expected = core | TOGGLES | BUNDLED
+user = {n for n in USER_SKILLS if n in by_name}
+expected = POLICY | TOGGLES | BUNDLED | user
 
 problems = []
 for leak in sorted(enabled - expected):
@@ -64,6 +71,12 @@ shelf_enabled = [s["name"] for s in skills
 off_pack = [n for n in shelf_enabled if n not in core]
 for name in off_pack:
     problems.append(f"skill from an OFF shelf pack is enabled: {name}")
+
+# The core shelf is a library, not a catalog: these are read on demand by the
+# router and must stay disabled in the model-facing list.
+shelf_on_demand = sorted(n for n in SHELF_CORE if n in enabled)
+if shelf_core.is_dir() and shelf_on_demand:
+    problems.append(f"shelf-core skills should stay on-demand (disabled): {shelf_on_demand}")
 
 collisions = [s["name"] for s in skills if s.get("collidesWith") and s["name"] in core]
 for name in collisions:
@@ -88,9 +101,12 @@ for name in sorted(TOGGLES):
         problems.append(f"toggle {name} is model-invocable; it would enter the prompt catalog")
 
 print(f"enabled skills: {len(enabled)} (expected {len(expected)})")
-print(f"  policy+shelf {len(enabled & core)}/{len(core)}"
+print(f"  policy {len(enabled & POLICY)}/{len(POLICY)}"
       f" · toggles {len(enabled & TOGGLES)}/{len(TOGGLES)}"
-      f" · bundled {len(enabled & BUNDLED)}/{len(BUNDLED)}")
+      f" · bundled {len(enabled & BUNDLED)}/{len(BUNDLED)}"
+      f" · user {len(enabled & user)}/{len(user)}")
+if shelf_core.is_dir():
+    print(f"  shelf-core on demand: {len(SHELF_CORE - enabled)}/{len(SHELF_CORE)} disabled")
 print(f"total catalog entries: {len(skills)} (enabled + disabled)")
 
 if problems:

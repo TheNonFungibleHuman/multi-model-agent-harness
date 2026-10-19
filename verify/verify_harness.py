@@ -16,8 +16,8 @@ SHELF = pathlib.Path.home() / "grok-skill-shelf"
 FILES = ["config.toml", "config.lean.toml", "config.full.toml"]
 BAD = []
 
-EXPECTED_SEATS = {"deepseek-flash", "deepseek-flash-high", "grok-4.5", "grok-4.6"}
-REMOVED_SEATS = {"deepseek-pro", "zen-deepseek-free", "zen-mimo", "big-pickle",
+EXPECTED_SEATS = {"deepseek-flash", "deepseek-flash-high", "deepseek-pro", "glm-flash"}
+REMOVED_SEATS = {"zen-deepseek-free", "zen-mimo", "big-pickle",
                  "zen-muse-spark-12", "zen-muse-spark-13",
                  "zen-ling-flash-fin", "zen-nemotron-lightning", "zen-nemotron-ultra",
                  "gemini-flash", "gemini-pro", "gemini-image", "gemini-36", "gemini-31-pro"}
@@ -27,7 +27,7 @@ POLICY_SKILLS = {
 }
 TOGGLE_SKILLS = {
     "shelf-core-on", "shelf-design-on", "shelf-extras-on", "shelf-firecrawl-on",
-    "shelf-matt-on", "shelf-off", "shelf-status", "shelf-video-on",
+    "shelf-matt-on", "shelf-pstack-on", "shelf-off", "shelf-status", "shelf-video-on",
     "mcp-design-on", "mcp-design-off", "mcp-design-status",
     "profile-full", "profile-lean", "profile-status",
 }
@@ -52,7 +52,10 @@ for name in FILES:
     print(f"   seats={sorted(cfg['model'])}")
     print(f"   subagents: plan={cfg['subagents']['models']['plan']} explore={cfg['subagents']['models']['explore']}")
     print(f"   mcp: exa={cfg['mcp_servers']['exa']['enabled']} paper={cfg['mcp_servers']['paper']['enabled']}"
-          f"  open-design={cfg['mcp_servers']['open-design']['enabled']}")
+          f"  pencil={cfg['mcp_servers'].get('pencil', {}).get('enabled', 'removed')}"
+          f"  inspo={cfg['mcp_servers'].get('inspo', {}).get('enabled', 'removed')}"
+          f"  open-design={cfg['mcp_servers'].get('open-design', {}).get('enabled', 'removed')}"
+          f"  mem0={cfg['mcp_servers']['mem0']['enabled']}")
 
     if b"\xc3\xa2\xe2\x82\xac" in data or b"\xef\xbf\xbd" in data:
         BAD.append(f"{name}: mojibake present")
@@ -86,7 +89,7 @@ seat_sets = {name: set(cfg["model"]) for name, cfg in configs.items()}
 if len(set(map(frozenset, seat_sets.values()))) != 1:
     BAD.append(f"profiles disagree on seats: { {k: sorted(v) for k, v in seat_sets.items()} }")
 defaults = {cfg["models"]["default"] for cfg in configs.values()}
-if defaults != {"deepseek-flash"}:
+if defaults != {"deepseek-flash-high"}:
     BAD.append(f"profiles disagree on default model: {defaults}")
 
 print("\n-- retired ports --")
@@ -151,6 +154,9 @@ else:
         expected = POLICY_SKILLS | SHELF_CORE
         print(f"   core junctions: {len(core_links)} (expected {len(expected)})")
         print(f"   off-pack junctions: {len(off_links)} (expected 0)")
+        missing_toggles = sorted(n for n in TOGGLE_SKILLS if not (skills_dir / n).exists())
+        if missing_toggles:
+            BAD.append(f"toggle skills missing: {missing_toggles}")
         missing_core = expected - set(core_links)
         if missing_core:
             BAD.append(f"core skills not linked: {sorted(missing_core)}")

@@ -6,7 +6,6 @@ installer = "internal"
 
 [ui]
 max_thoughts_width = 120
-fork_secondary_model = "grok-build"
 yolo = false
 compact_mode = false
 permission_mode = "always-approve"
@@ -24,9 +23,14 @@ git = "https://github.com/xai-org/plugin-marketplace.git"
 enabled = []
 
 [models]
-default = "deepseek-flash"
+default = "deepseek-flash-high"
+# Seats self-declare effort (deepseek-flash low, deepseek-flash-high high). This
+# key is tuner-owned: token-ledger/tuner.py lowers it when reasoning burns hot.
 default_reasoning_effort = "medium"
-web_search = "grok-4.6"
+web_search = "deepseek-flash"
+# xAI-hosted grok seats are retired here (Grok Build balance exhausted, 402).
+# Hidden from the picker; -m can still select them after a balance top-up.
+hidden_models = ["grok-4.5", "grok-4.6"]
 
 [features]
 web_fetch = true
@@ -69,19 +73,46 @@ max_completion_tokens = 16384
 supports_reasoning_effort = true
 reasoning_effort = "high"
 
+[model.deepseek-pro]
+model = "deepseek-v4-pro"
+base_url = "https://api.deepseek.com"
+supports_backend_search = true
+name = "DeepSeek V4.1 Pro"
+description = "Text-only V4.1 Pro (1.6T MoE): judgment, planning, hard bugs, review. Direct api.deepseek.com."
+env_key = "DEEPSEEK_API_KEY"
+api_backend = "chat_completions"
+context_window = 500000
+max_completion_tokens = 16384
+supports_reasoning_effort = true
+reasoning_effort = "high"
+
+[model.glm-flash]
+model = "glm-5.3-flash"
+base_url = "https://api.z.ai/api/paas/v4"
+name = "GLM 5.3 Flash (Z.ai PAYG)"
+description = "Z.ai direct GLM 5.3 Flash: 1M context, reasoning always on at low effort. Bulk/overflow seat on the PAYG plan."
+env_key = "ZAI_API_KEY"
+api_backend = "chat_completions"
+context_window = 500000
+max_completion_tokens = 8192
+supports_reasoning_effort = true
+reasoning_effort = "low"
+
 [subagents]
 enabled = true
 
 [subagents.models]
 explore = "deepseek-flash"
-plan = "grok-4.5"
+plan = "deepseek-pro"
 
+# Personas are prompt overlays (TUI /personas or subagent resolution); they do
+# not create spawnable subagent types. Spawn types: explore, general-purpose, plan.
 [subagents.personas.reviewer]
-description = "High-judgment code/spec review and nasty-bug analysis on Grok 4.5"
-model = "grok-4.5"
+description = "High-judgment code/spec review and nasty-bug analysis on DeepSeek V4.1 Pro"
+model = "deepseek-pro"
 reasoning_effort = "high"
 instructions = """
-You are Grok: senior judgment for a DeepSeek implementer parent.
+You are the senior reviewer on DeepSeek V4.1 Pro: judgment for a Flash implementer parent.
 
 Use for: code/spec review, nasty/hard/flaky bugs, security, architecture calls.
 Be concise. Cite file paths. Prefer actionable findings over praise.
@@ -92,11 +123,11 @@ Do not dump huge rewrites — hand the parent a clear plan they can execute.
 """
 
 [subagents.personas.planner]
-description = "Architecture and implementation planning on Grok 4.5 (DeepSeek implements after)"
-model = "grok-4.5"
+description = "Architecture and implementation planning on DeepSeek V4.1 Pro (Flash implements after)"
+model = "deepseek-pro"
 reasoning_effort = "high"
 instructions = """
-You are Grok planning for a DeepSeek implementer. Do not implement large code changes.
+You are the senior planner on DeepSeek V4.1 Pro for a Flash implementer. Do not implement large code changes.
 
 When the user wants a plan, approach, or architecture:
 1. Goals and non-goals
@@ -119,6 +150,11 @@ Stay scoped to the task. Run tests when available. Summarize files changed and r
 # Token-lean default: heavy/niche skills disabled. Design skills re-enabled by /mcp-design-on.
 ignore = ["~/.agents/skills/code-review", "~/.agents/skills/diagnosing-bugs", "~/.agents/skills/find-skills", "~/.agents/skills/here-now", "~/.agents/skills/resolving-merge-conflicts", "~/.agents/skills/tdd"]
 disabled = [
+    "code-review",
+    "codebase-design",
+    "diagnosing-bugs",
+    "domain-modeling",
+    "find-skills",
     "firecrawl",
     "firecrawl-agent",
     "firecrawl-build",
@@ -153,13 +189,20 @@ disabled = [
     "firecrawl-workflows",
     "game-animation-frames",
     "game-asset-core",
+    "game-assets",
     "game-character-consistency",
     "game-tilesets",
     "game-ui-icons",
+    "here-now",
     "neon",
     "neon-postgres",
     "neon-postgres-branches",
+    "resolving-merge-conflicts",
+    "tdd",
+    "threejs-frame-conventions",
     "tldraw-offline",
+    "wizard",
+    "writing-for-agents",
 ]
 paths = []
 server_skill_dirs = []
@@ -173,21 +216,6 @@ skills = true
 
 # Design MCPs OFF by default (token-lean). Toggle: /mcp-design-on | /mcp-design-off
 # Placeholder paths. Point these at a local Open Design install before enabling the server.
-[mcp_servers.open-design]
-command = 'C:\Path\To\Open Design\Open Design.exe'
-args = [
-    'C:\Path\To\Open Design\resources\app\prebundled\daemon\daemon-cli.mjs',
-    "mcp",
-]
-enabled = true
-
-[mcp_servers.open-design.env]
-ELECTRON_RUN_AS_NODE = "1"
-OD_DATA_DIR = 'C:\Path\To\Open Design Data\namespaces\release-stable-win\data'
-OD_SIDECAR_IPC_PATH = '\\.\pipe\open-design-release-stable-win-daemon'
-OD_MCP_BOOTSTRAP_COMMAND = 'C:\Path\To\Open Design\Open Design.exe'
-OD_MCP_BOOTSTRAP_ARGS = '["--headless"]'
-
 [mcp_servers.paper]
 url = "http://127.0.0.1:29979/mcp"
 enabled = false
@@ -196,11 +224,22 @@ enabled = false
 url = "https://mcp.exa.ai/mcp?tools=web_search_exa,web_fetch_exa"
 enabled = true
 
-[model."grok-4.5"]
-context_window = 500000
+# mem0 hosted memory (Agent Mode free tier). The key stays in the user env var
+# MEM0_API_KEY; grok expands ${VAR} inside headers. Retrieval policy: one
+# search at session start + on demand (see rules/00-token-efficiency.md).
+[mcp_servers.mem0]
+url = "https://mcp.mem0.ai/mcp"
+enabled = true
+headers = { "X-API-Key" = "${MEM0_API_KEY}" }
 
-[model."grok-4.6"]
-context_window = 500000
+[mcp_servers.pencil]
+command = 'C:\Program Files\Pen\resources\app.asar.unpacked\out\mcp-server-windows-x64.exe'
+args = ["--app", "desktop"]
+enabled = false
+
+[mcp_servers.inspo]
+url = "https://inspomcp.dev/api/mcp"
+enabled = false
 
 [privacy]
 privacy_banner_acked = "2026-08-13T11:54:17Z"

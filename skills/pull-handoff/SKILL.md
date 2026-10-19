@@ -22,7 +22,9 @@ $dir = Join-Path $env:USERPROFILE ".grok\handoffs"
 
 2. Choose the file:
    - If the user passed an argument, treat it as a filename or substring (e.g. `auth-fix.md`).
+   - Else, if `.last-handoff` exists, read its `path` (that is the auto-handoff the watcher just wrote).
    - Else pick the **most recently modified** `*.md` in that directory (ignore `README.md`).
+   - After `/new`, `/pull-handoff` with no argument is the intended path; it loads the newest auto-handoff.
 
 3. Read the full handoff file with the file tool.
 
@@ -32,7 +34,7 @@ $dir = Join-Path $env:USERPROFILE ".grok\handoffs"
    - Open work
    - Key paths
    - Risks / constraints
-   - Suggested model seat (Flash / Grok / Gemini)
+   - Suggested model seat (Flash / Pro / GLM)
    - Suggested skills
 
 5. Ask **one** clarifying question only if the handoff is ambiguous; otherwise continue the open work.

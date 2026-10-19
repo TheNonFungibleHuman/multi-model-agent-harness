@@ -1,8 +1,13 @@
 # Token efficiency (home rules — apply in every session)
 
-## Web search / fetch (automatic, seat-aware)
-- **On Grok seats** (`grok-4.6`, `grok-4.5`, `grok-build`): use native `web_search` and `web_fetch` only. Do **not** use Exa MCP unless the user explicitly asks for Exa.
-- **On DeepSeek and other non-Grok seats:** prefer Exa MCP (`exa__web_search_exa`, `exa__web_fetch_exa`). If native `web_fetch` is denied or errors on those seats, fall back to Exa without asking.
+## Skill routing (automatic)
+- Before a multi-step build, design, debug, review, research or video task, run
+  the router's `skill-search` and read at most **1–3** matching `SKILL.md` files.
+  Packs stay unlinked; never load a whole pack.
+
+## Web search / fetch (automatic)
+- Native `web_search` / `web_fetch` are pinned to `deepseek-flash` in every profile (backend search on api.deepseek.com). They are the cheap default for routine lookups.
+- Prefer Exa MCP (`exa__web_search_exa`, `exa__web_fetch_exa`) for deep or multi-source research, and whenever a native call is denied or errors. Do not switch the session model just to search.
 
 ## Token-lean defaults (automatic)
 - Keep replies concise. Answer first, then supporting detail. No restating the request, no summaries of what was just done unless asked.
@@ -17,7 +22,12 @@
 - Keep handoff briefs short (the README rule: they are the bus between sessions, not transcript dumps).
 
 ## Image handling (automatic)
-- **DeepSeek V4.1 Flash or Grok:** read images directly on the current seat. Do not spawn a vision subagent.
-- **Gemini seats are unplugged.** Do not `/model gemini-*` or spawn `gemini-image`.
-- **If a seat rejects an image** (a 400 on `image_url`, or the provider is text-only): do not invent pixels; ask the user to re-attach it on DeepSeek or Grok.
+- **Multimodal seats (`deepseek-flash`, `deepseek-flash-high`, `glm-flash`):** read images directly on the current seat. Do not spawn a vision subagent.
+- **Text-only seats (`deepseek-pro`):** do not send images. Read the image on a Flash seat and pass a text description.
+- **Gemini seats are unplugged.** Do not `/model gemini-*` or spawn `gemini-image`. The xAI-hosted seats are retired.
+- **If a seat rejects an image** (a 400 on `image_url`, or the provider is text-only): do not invent pixels; ask the user to re-attach it on `deepseek-flash`.
 - Images cost tokens (DeepSeek bills image input). Prefer one screenshot; do not re-send the same image every turn if a text summary already exists.
+
+## Memory (mem0 MCP, when connected)
+- Retrieval is the metered side. One `search_memory` at session start when the task continues earlier work; otherwise on demand. Never per-turn.
+- Store sparingly with `add_memory`: durable preferences, project conventions, painful-bug lessons — one line each. `capture-lesson` mirrors its lessons here.

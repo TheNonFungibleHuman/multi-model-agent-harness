@@ -39,15 +39,16 @@ spawn_subagent(explore, "Find rate-limit config…")   # background
 
 | Role | Config / model id | Notes |
 |------|-------------------|--------|
-| Main bulk | `deepseek-flash` | Default foreman / implementer |
-| Bulk + think | `deepseek-flash-high` | Same model, higher effort. `deepseek-pro` was removed — it was identical to this seat. |
+| Main bulk | `deepseek-flash` | Bulk foreman / implementer |
+| Bulk + think (default) | `deepseek-flash-high` | Same model, higher effort. The config default daily driver. |
+| **Judgment / hard** | **`deepseek-pro`** | Planning, nasty bugs, review. Also the `plan` subagent and both personas. Text-only. |
+| Overflow bulk | `glm-flash` | Z.ai GLM 5.3 Flash (PAYG), 1M context, low effort. Alternative bulk seat; same rules — the pro seat still plans and debugs. |
 | Explore children | `deepseek-flash` via `[subagents.models]` | Read-only search |
-| **Plan children** | **`grok-4.5`** via `[subagents.models].plan` | **Always Grok for real planning** |
-| Vision | DeepSeek V4.1 Flash or Grok on the current seat | Screenshots, Paper, mockups. **No Gemini.** |
-| **Nasty bugs / hard debug** | **`grok-4.5`** | **Must spawn Grok** — not DeepSeek alone |
-| Review / architecture | `grok-4.5` | Security, design judgment, go/no-go |
-| Web facts (Grok seat) | native `web_search` / `web_fetch` | Do not use Exa unless asked |
-| Web facts (DeepSeek seat) | Exa MCP | Do not switch whole session |
+| **Plan children** | **`deepseek-pro`** via `[subagents.models].plan` | **Always the pro seat for real planning** |
+| Vision | `deepseek-flash` or `glm-flash` on the current seat | Screenshots, Paper, mockups. Pro is text-only. **No Gemini, no xAI seats.** |
+| **Nasty bugs / hard debug** | **`deepseek-pro`** | **Must spawn the pro seat** — not Flash alone |
+| Review / architecture | `deepseek-pro` | Security, design judgment, go/no-go |
+| Web facts | native `web_search` / `web_fetch` (pinned to `deepseek-flash`) | Exa MCP for deep research or fallback |
 | Images create/edit | `image_gen` / `image_edit` tools | Not a chat subagent |
 
 **No local proxies.** 8787, 8788, 8789 and 8791 are all retired — never start one to work around a seat error.
@@ -56,14 +57,14 @@ spawn_subagent(explore, "Find rate-limit config…")   # background
 
 | Specialty | Model | When |
 |-----------|--------|------|
-| **Volume coding** | DeepSeek | Default implement, tests, refactors |
-| **Planning** | **Grok 4.5** | User wants a plan, multi-step design, “how should we build X”, architecture before code |
-| **Nasty / hard bugs** | **Grok 4.5** | Heisenbugs, flaky, multi-system, security, “can’t repro”, Flash already failed, race/concurrency, production-only |
-| **Vision** | DeepSeek V4.1 Flash or Grok | Pixels / screenshots. Gemini unplugged. |
+| **Volume coding** | DeepSeek Flash | Default implement, tests, refactors |
+| **Planning** | **DeepSeek Pro** | User wants a plan, multi-step design, “how should we build X”, architecture before code |
+| **Nasty / hard bugs** | **DeepSeek Pro** | Heisenbugs, flaky, multi-system, security, “can’t repro”, Flash already failed, race/concurrency, production-only |
+| **Vision** | `deepseek-flash` or `glm-flash` | Pixels / screenshots. Pro is text-only. Gemini unplugged. |
 | **Explore map** | DeepSeek explore | “Where is X?” only |
 
-Personas: `drafter` (DeepSeek), `reviewer` (Grok), `planner` (Grok). No `vision` persona (Gemini unplugged).  
-Pin **`model`** on spawn and put specialty rules in the **child prompt**. For plan type, config already sets model to Grok.
+Spawnable types (probe-confirmed on this build): `explore`, `general-purpose`, `plan`. The `[subagents.personas.*]` blocks in config are prompt overlays only — they do **not** create spawn types, so never pass `subagent_type: reviewer` or `planner` (the call fails with "Unknown subagent type").  
+Pin **`model`** on spawn (e.g. `model: deepseek-pro`) and put specialty rules in the **child prompt**. For `plan`, config already sets the model to DeepSeek Pro.
 
 ## Task → specialist table
 
@@ -72,13 +73,13 @@ Pin **`model`** on spawn and put specialty rules in the **child prompt**. For pl
 | Trivial edit, rename, one-liner | **Yes alone** | — | — | — | — |
 | Multi-file implement, tests | **Yes** (or drafter child) | optional drafter | `general-purpose` | `deepseek-flash` | No if same files as main |
 | “Where is X?” / map codebase | Light grep OK | **explore** | `explore` | deepseek | **Yes** × independent queries |
-| **Any non-trivial plan / design / “how should we…”** | **No — do not plan alone on DeepSeek** | **planner** | `plan` or `general-purpose` | **`grok-4.5`** | Usually 1 (optionally parallel with explore) |
-| **Nasty / hard / subtle bug** | **No — do not debug alone after one weak try** | **debugger / reviewer** | `general-purpose` | **`grok-4.5`** | 1 (explore may run first or in parallel) |
-| Screenshot / Paper visual QA | **Yes — read on DeepSeek V4.1 / Grok** | — | — | — | n/a |
-| Bug screenshot → fix | **Yes** (read image on main) | Grok if nasty | `general-purpose` | **grok-4.5** | Sequential for nasty |
+| **Any non-trivial plan / design / “how should we…”** | **No — do not plan alone on Flash** | **planner** | `plan` or `general-purpose` | **`deepseek-pro`** | Usually 1 (optionally parallel with explore) |
+| **Nasty / hard / subtle bug** | **No — do not debug alone after one weak try** | **debugger / reviewer** | `general-purpose` | **`deepseek-pro`** | 1 (explore may run first or in parallel) |
+| Screenshot / Paper visual QA | **Yes — read on `deepseek-flash` / `glm-flash`** | — | — | — | n/a |
+| Bug screenshot → fix | **Yes** (read image on main) | pro seat if nasty | `general-purpose` | **`deepseek-pro`** | Sequential for nasty |
 | Paper design loop | Paper MCP on main; DeepSeek reads screenshots | — | — | — | Not two Paper writers |
-| Security / merge review | No | **reviewer** | `general-purpose` | **`grok-4.5`** | After implement |
-| Architecture decision | No | **planner** | `plan` / `general-purpose` | **`grok-4.5`** | 1 |
+| Security / merge review | No | **reviewer** | `general-purpose` | **`deepseek-pro`** | After implement |
+| Architecture decision | No | **planner** | `plan` / `general-purpose` | **`deepseek-pro`** | 1 |
 | Fresh API/docs facts | Call tool | — | — | `web_search` | N/A |
 | Image generation | Tools on main | — | — | Imagine tools | Parallel gens OK |
 
@@ -93,7 +94,7 @@ Every spawn prompt must include:
 
 ### Vision child (template)
 
-Do **not** spawn a Gemini vision child. Gemini seats are unplugged. Read images on DeepSeek V4.1 Flash or Grok.
+Do **not** spawn a Gemini vision child. Gemini seats are unplugged. Read images on `deepseek-flash` or `glm-flash` (the pro seat is text-only).
 
 ### Reviewer child (template)
 
@@ -102,12 +103,12 @@ Strict review. Check correctness, edge cases, security, match to goal.
 Return: summary, blockers, nits, go/no-go. Cite paths. No fluff.
 ```
 
-`model`: **`grok-4.5`** · high effort if available.
+`model`: **`deepseek-pro`** · high effort if available.
 
-### Nasty-bug / hard-debug child (template) — **always Grok**
+### Nasty-bug / hard-debug child (template) — **always DeepSeek Pro**
 
 ```text
-You are Grok on a hard debug. Parent is DeepSeek (implementer only).
+You are the senior debugger (DeepSeek V4.1 Pro) on a hard debug. Parent is Flash (implementer only).
 Symptoms: <paste>
 What we tried: <paste>
 Reproduce: <commands/paths if known>
@@ -119,11 +120,12 @@ Return ONLY:
 Do not implement large rewrites; hand a clear fix plan back to the parent.
 ```
 
-`model`: **`grok-4.5`** · `subagent_type`: `general-purpose` · high effort if available.
+`model`: **`deepseek-pro`** · `subagent_type`: `general-purpose` · high effort if available.
 
-**Triggers (spawn Grok — do not keep thrashing DeepSeek alone):**
+**Triggers (spawn the pro seat — do not keep thrashing Flash alone):**
 - User says nasty / hard / flaky / heisenbug / race / production-only / security bug  
-- Same issue failed **twice** on DeepSeek  
+- Same issue failed **twice** on Flash  
+- A Flash fix broke a p2p test (the measured conversion case)
 - Multi-service or concurrency / memory corruption style symptoms  
 - You are guessing without a clear root cause  
 
@@ -136,39 +138,39 @@ Do not edit files.
 
 `subagent_type`: `explore` · DeepSeek.
 
-### Plan child (template) — **always Grok**
+### Plan child (template) — **always DeepSeek Pro**
 
 ```text
-You are Grok planning for a DeepSeek implementer.
+You are the senior planner (DeepSeek V4.1 Pro) for a Flash implementer.
 Goal: <user goal>
 Constraints: <stack, deadlines, must-not-break>
 Produce a sequenced plan:
 1. Goals / non-goals
 2. Steps (ordered), each with files/areas and acceptance checks
 3. Risks & open questions
-4. What DeepSeek should implement first (smallest vertical slice)
+4. What Flash should implement first (smallest vertical slice)
 Do not edit the codebase. Keep it actionable and short enough for the parent to execute.
 ```
 
-`subagent_type`: **`plan`** (model is **`grok-4.5`** via config) **or** `general-purpose` with `model: grok-4.5`.
+`subagent_type`: **`plan`** (model is **`deepseek-pro`** via config) **or** `general-purpose` with `model: deepseek-pro`.
 
-**Triggers (spawn Grok planner — do not plan solo on DeepSeek):**
+**Triggers (spawn the pro planner — do not plan solo on Flash):**
 - User asks to **plan**, design approach, architecture, roadmap, or “how should we build…”  
 - Multi-module feature before first commit  
 - Risky migration / data / auth / payments design  
 
-Tiny one-file plans can stay on main; anything non-trivial → **Grok**.
+Tiny one-file plans can stay on main; anything non-trivial → **DeepSeek Pro**.
 
 ## Decision algorithm (each user turn)
 
 ```text
-1. Is it trivial? → DeepSeek alone.
-2. Need pixels? → read them on DeepSeek V4.1 / Grok. Do not spawn Gemini.
-3. Need a plan / architecture / “how should we…”? → MUST spawn Grok planner (plan type or general-purpose model=grok-4.5).
-4. Nasty / hard / flaky bug or Flash failed twice? → MUST spawn Grok debugger (model=grok-4.5).
-5. Need broad “where is X”? → 1–3 explore (DeepSeek) in parallel; may parallel with Grok plan.
-6. Implement on main (DeepSeek) from Grok’s plan / debug findings.
-7. Risky ship / user asked review? → spawn Grok reviewer.
+1. Is it trivial? → DeepSeek Flash alone.
+2. Need pixels? → read them on `deepseek-flash` / `glm-flash`. Do not spawn Gemini.
+3. Need a plan / architecture / “how should we…”? → MUST spawn pro planner (plan type or general-purpose model=deepseek-pro).
+4. Nasty / hard / flaky bug or Flash failed twice? → MUST spawn pro debugger (model=deepseek-pro).
+5. Need broad “where is X”? → 1–3 explore (DeepSeek) in parallel; may parallel with the pro plan.
+6. Implement on main (Flash) from the pro seat’s plan / debug findings.
+7. Risky ship / user asked review? → spawn pro reviewer.
 8. Stale facts? → web_search on main.
 ```
 
@@ -178,25 +180,25 @@ Tiny one-file plans can stay on main; anything non-trivial → **Grok**.
 
 ```text
 parallel: explore(A), explore(B)
-optional parallel: Grok plan if design is unclear
+optional parallel: pro plan if design is unclear
 → main DeepSeek implements from summaries
 ```
 
-### B — Plan then implement (**Grok plans**)
+### B — Plan then implement (**the pro seat plans**)
 
 ```text
-sequential: Grok plan (subagent_type=plan, model=grok-4.5)
+sequential: DeepSeek Pro plan (subagent_type=plan, model=deepseek-pro)
 → main DeepSeek implements step 1 slice
 → tests
-→ optional Grok reviewer before ship
+→ optional pro reviewer before ship
 ```
 
-### C — Nasty bug (**Grok debugs**)
+### C — Nasty bug (**the pro seat debugs**)
 
 ```text
 optional parallel: explore(symptoms); parent reads any screenshot
-→ Grok hard-debug (model=grok-4.5)
-→ main DeepSeek applies minimal fix from Grok’s plan
+→ DeepSeek Pro hard-debug (model=deepseek-pro)
+→ main DeepSeek applies minimal fix from the pro plan
 → re-verify
 ```
 
@@ -213,7 +215,7 @@ main: Paper edits
 
 ```text
 parallel: explore("related code"); parent reads screenshot
-if still unclear root cause → Grok debug
+if still unclear root cause → pro debug
 → main fixes
 ```
 
@@ -221,14 +223,15 @@ if still unclear root cause → Grok debug
 
 ```text
 main: finish tests
-→ sequential: Grok reviewer (grok-4.5)
+→ sequential: pro reviewer (deepseek-pro)
 → address blockers
 ```
 
 ## Anti-patterns
 
-- **Planning a multi-step feature only on DeepSeek** when the user asked for a plan — **spawn Grok**  
-- **Thrashing DeepSeek on a nasty bug** instead of spawning Grok  
+- **Planning a multi-step feature only on Flash** when the user asked for a plan — **spawn DeepSeek Pro**  
+- **Thrashing Flash on a nasty bug** instead of spawning the pro seat  
+- **Blanket pro retries on every failure** (measured: 1/33 conversions for +8% cost/solved)  
 - Spawning 5 general-purpose editors on the same module  
 - `/model gemini-*` or spawning `gemini-image` — those seats are unplugged  
 - Pasting full child transcripts into parent  
@@ -240,10 +243,10 @@ main: finish tests
 
 After children return:
 
-1. If Grok planned → execute the **first vertical slice** on DeepSeek  
-2. If Grok debugged → apply **minimal fix** only; re-test  
+1. If the pro seat planned → execute the **first vertical slice** on Flash  
+2. If the pro seat debugged → apply **minimal fix** only; re-test  
 3. Run tests / Paper screenshot as needed  
-4. Grok reviewer before declaring risky work done  
+4. Pro reviewer before declaring risky work done  
 
 ## Related
 
@@ -255,9 +258,9 @@ After children return:
 | User says | You do |
 |-----------|--------|
 | `/delegate` or “use subagents” | Apply this skill; state what you will spawn |
-| “run in parallel” | Fan out independent explores/vision; Grok plan/debug usually sequential |
-| “save quota” | DeepSeek for volume; **still spawn Grok for plan + nasty bugs** |
-| “plan this” / “how should we build…” | **Must spawn Grok planner** (`plan` / `grok-4.5`) |
-| “nasty bug” / “hard bug” / “flaky” / stuck twice | **Must spawn Grok debugger** (`grok-4.5`) |
-| “review this” | Spawn Grok reviewer |
-| “look at this screenshot” | Read it on DeepSeek V4.1 / Grok. No Gemini. |
+| “run in parallel” | Fan out independent explores/vision; pro plan/debug usually sequential |
+| “save quota” | Flash for volume; **still spawn DeepSeek Pro for plan + nasty bugs** |
+| “plan this” / “how should we build…” | **Must spawn pro planner** (`plan` / `deepseek-pro`) |
+| “nasty bug” / “hard bug” / “flaky” / stuck twice | **Must spawn pro debugger** (`deepseek-pro`) |
+| “review this” | Spawn DeepSeek Pro reviewer |
+| “look at this screenshot” | Read it on `deepseek-flash` / `glm-flash`. No Gemini. |

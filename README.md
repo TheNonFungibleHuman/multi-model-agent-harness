@@ -1,10 +1,21 @@
 # Multi-model agent harness
 
-An operating layer for [Grok Build](https://x.ai/cli): four routed model seats, switchable config profiles, a skill shelf, and two Python daemons that record token cost and edit the live config from measured evidence. A small verification suite checks that the install still matches the rules in this repo.
+An operating layer for [Grok Build](https://x.ai/cli): four routed model seats, switchable config profiles, a 33-skill on-demand catalog, a Pencil-first design gate, and two Python daemons that record token cost and edit the live config from measured evidence. A small verification suite and a scheduled integrity canary check that the install still matches the rules in this repo.
 
 The Grok binary, its tools, and its model client are xAI's. This repository is the layer around that binary. Fork it, change the seats and the policy, and install it onto your own `~/.grok`.
 
-Measured on my machine from 12 Aug 2026 through 6 Oct 2026: **3,051** inferences across **197** sessions. **2,872** of those rows are priced on DeepSeek's published rate card, about **$3.23**, and **98.5%** of those prompt tokens were cache hits (432.4M of 438.8M). The ledger file is local and is not in this repo. The figures above are a snapshot, not a promise about your bill.
+Measured on my machine from 12 Aug 2026 through 18 Oct 2026: **3,000+** inferences across **198** sessions. **2,872** of those rows are priced on DeepSeek's published rate card, about **$3.23**, and **98.5%** of those prompt tokens were cache hits (432.4M of 438.8M). The ledger file is local and is not in this repo. The figures above are a snapshot, not a promise about your bill.
+
+## Current state — 19 Oct 2026
+
+- **Routing:** Flash-first remains the default. A pre-registered experiment found that blanket Pro escalation added only **+1 task (3%) at 1.08× cost**, so it was rejected. Pro is targeted: planning, hard bugs, final review, or a retry after Flash breaks a p2p test or fails twice. The measured policy is in `skills/route` and `skills/delegate`.
+- **Skills:** the model-facing catalog is **33**, not 43. Ten core-shelf skills (`code-review`, `diagnosing-bugs`, `tdd`, `codebase-design`, `domain-modeling`, `find-skills`, `here-now`, `resolving-merge-conflicts`, `wizard`, `writing-for-agents`) are disabled in the catalog and read on demand by `skill-router`. Measured saving: about **1,000 prompt tokens per turn**.
+- **Design:** Pencil-only. The HTML/CSS direction set and its review page are retired. `design-lane.ps1` starts a child session with Pencil (and Inspo when needed), produces 2–3 canvas directions, exports `preview.png`, and restores both MCPs off. The parent session never carries the design tools.
+- **Inspiration:** the lane asks for your references first. If you have none, it uses **Inspo** (`inspomcp.dev`, MIT, free hosted) and synthesizes 2–3 references. It steals principles, not layouts: no 1:1 copies, no borrowed copy/logos/assets, no blind palette copying.
+- **MCP:** Pencil and Inspo are **off by default**. `grok -Design` enables Pencil for a session; `-Inspo` enables Inspo; the design lane enables both for the child and restores them on exit. Normal build turns stay at about **15.9k prompt tokens**.
+- **Hooks:** the Impeccable and anti-slop gates are event-scoped to changed UI files. A non-UI turn costs about 0.3s; a full turn went from **104s to ~12s**. The evidence gate still requires test proof for code extensions; HTML/CSS are exempt.
+- **Safety:** the PreToolUse isolation guard was removed by request; auto-approve is user-managed. The disposable **Windows Sandbox** recipe remains in `sandbox/` for untrusted code.
+- **Verification:** `verify_harness.py` and `verify_skills.py` are CLEAN; `integrity-canary.ps1` hashes 17 policy files and is installed as a daily scheduled task.
 
 ## Install it on your Grok
 
@@ -22,24 +33,34 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\install.ps1
 | --- | --- |
 | `config.lean.toml`, `config.full.toml`, the scripts | `%USERPROFILE%\.grok\` |
 | `skills\` | `%USERPROFILE%\.grok\skills\` |
-| `token-ledger\`, `verify\`, `rules\` | the same folders under `%USERPROFILE%\.grok\` |
+| `token-ledger\`, `verify\`, `rules\`, `hooks\`, `sandbox\` | the same folders under `%USERPROFILE%\.grok\` |
 | `shelf.ps1` | `%USERPROFILE%\grok-skill-shelf\shelf.ps1` |
 
-It leaves `auth.json`, sessions, logs, `grok.exe`, and the ledger's data files (`usage.jsonl`, `session_stats.jsonl`, `changes.log`) untouched. If `config.toml` already exists, it stays. Pass `-ForceConfig` to replace it with this repo's starter, which is the lean profile.
+It leaves `auth.json`, sessions, logs, `grok.exe`, and the ledger's data files (`usage.jsonl`, `session_stats.jsonl`, `changes.log`) untouched. Skill names already linked into the shelf are kept as junctions, and the shelf's core copies of the six policy skills are refreshed. If `config.toml` already exists, it stays. Pass `-ForceConfig` to replace it with this repo's starter, which is the lean profile.
 
 Set a user-level `DEEPSEEK_API_KEY`, then launch through the wrapper so the key is loaded into the process:
 
 ```powershell
 powershell -NoProfile -File "$env:USERPROFILE\.grok\start-grok.ps1"
+powershell -NoProfile -File "$env:USERPROFILE\.grok\start-grok.ps1" -Design -Inspo
 ```
 
-Grok seats use `grok login` or `XAI_API_KEY`. To run the ledger and the tuner in the background:
+Normal sessions have Pencil and Inspo **off**. `-Design` enables Pencil for that session; `-Inspo` enables Inspo; both are restored off on exit. The design lane does this for a child session automatically.
+
+The provider seats read their API keys from the user environment (`DEEPSEEK_API_KEY`, `ZAI_API_KEY`); no xAI login is needed any more. To run the ledger and the tuner in the background:
 
 ```powershell
 powershell -NoProfile -File "$env:USERPROFILE\.grok\token-ledger\register-startup.ps1"
 ```
 
 That registers `GrokLedgerWatchdog`, every 15 minutes, through `run-hidden.vbs`, so a console window does not flash on the desktop.
+
+For the policy-file canary (17 hooks/rules/gates), write a baseline once and install the daily task:
+
+```powershell
+powershell -NoProfile -File "$env:USERPROFILE\.grok\verify\integrity-canary.ps1" -Update
+powershell -NoProfile -File "$env:USERPROFILE\.grok\verify\integrity-canary.ps1" -Install
+```
 
 ## Make it yours
 
@@ -49,13 +70,14 @@ Edit the clone, then run `install.ps1` again. The clone is the source of truth.
 | --- | --- |
 | Add or remove a seat | `[model.*]` in `config.toml`, `config.lean.toml`, and `config.full.toml`, then the seat table in `skills/route/SKILL.md` and `skills/delegate/SKILL.md`, then `EXPECTED_SEATS` in `verify/verify_harness.py` |
 | Change who plans and who implements | `[subagents.models]` and `[subagents.personas]` in all three configs |
-| Change the daily default | `[models] default` in all three configs. The verifier requires them to agree. The starter default is `deepseek-flash` |
+| Change the daily default | `[models] default` in all three configs. The verifier requires them to agree. The starter default is `deepseek-flash-high` |
+| Run one session on another seat | `start-grok.ps1 -m glm-flash` (the `-m` flag never writes config). The TUI `/model`/Ctrl+M picker saves the choice as the persistent default; `start-grok.ps1` snapshots the default at launch and restores it on exit, so `/model` is effectively session-scoped |
 | Turn a pack of heavy skills on | `shelf.ps1` and the `/shelf-*` skills. Packs live under `%USERPROFILE%\grok-skill-shelf\` and are yours to add. This repo ships the switch, not the packs |
 | Pin a context window or the reasoning default | `token-ledger/overrides.toml`. A pin is never overwritten by the tuner |
 | Change when the window grows | `WINDOW_FLOOR`, `WINDOW_CAP`, `WINDOW_STEP`, and `RAISE_AT` in `token-ledger/tuner.py` |
 | Allow another skill in the catalog | add its name to the set at the top of `verify/verify_skills.py`, or disable it under `[skills] disabled` |
 
-`config.full.toml` enables fewer skill blocks and turns Open Design on. The Open Design paths in these files are placeholders (`C:\Path\To\Open Design`). Point them at your install before you use that server.
+`config.full.toml` changes the skill/seat profile; Pencil and Inspo stay off by default. Use `start-grok.ps1 -Design -Inspo` for a design session, or `design-lane.ps1` for a single canvas direction. The design lane is the preferred path because the parent session stays free of the design tools.
 
 Profile switches go through `switch-profile.ps1`, which calls `token-ledger/carry_tuning.py`. The templates stay the profile defaults. The live per-seat `context_window`, `default_reasoning_effort`, and the watched MCP `enabled` flags are written back on top, so a switch keeps what the tuner (or you) already set.
 
@@ -73,27 +95,39 @@ grok.exe  --->  ~/.grok/logs/unified.jsonl
                          |
               switch-profile.ps1 --> carry_tuning.py
                          |
-              verify_harness.py / verify_skills.py / test_switch_carry.py
+              verify_harness.py / verify_skills.py / test_switch_carry.py / integrity-canary.ps1
 ```
+
+**Design lane.** `design-lane.ps1` starts a child `grok -Design -Inspo` session, which loads Pencil and Inspo for that child only. The child produces canvas directions, exports `preview.png`, and exits; the parent build session never carries the design MCPs. The lane asks for user references first and falls back to Inspo when there are none.
 
 **Seats.** The starter config has four, all direct to the provider:
 
 | Seat | Role |
 | --- | --- |
-| `deepseek-flash` | Daily driver. DeepSeek V4.1 Flash at `api.deepseek.com`, effort `low` |
-| `deepseek-flash-high` | The same model with effort `high` and a 16k output budget |
-| `grok-4.5` | Planning, review, hard bugs. Also the `plan` subagent |
-| `grok-4.6` | The model `[models] web_search` is pinned to |
+| `deepseek-flash` | Volume workhorse. DeepSeek V4.1 Flash at `api.deepseek.com`, effort `low` |
+| `deepseek-flash-high` | The starter default: the same model at effort `high` with a 16k output budget |
+| `deepseek-pro` | Judgment seat: V4.1 Pro (text-only, effort `high`) for planning, review, hard bugs. The `plan` subagent and both personas run here |
+| `glm-flash` | Z.ai GLM 5.3 Flash (PAYG) at `api.z.ai`, native 1M context, effort `low`. Needs `ZAI_API_KEY` |
 
-Two DeepSeek rows exist because the tuner owns the global `default_reasoning_effort`. A single row would lose its high-effort preset every time the tuner pins the global default to `low`. The second row carries its own effort, which the tuner does not write.
+The xAI-hosted `grok-*` seats were retired when the Grok Build balance ran out (HTTP 402, 17 Oct 2026); they are hidden from the picker and no policy points at them.
 
-**Policy skills.** `route`, `delegate`, and `web-search` tell the agent which seat does which work. On a Grok seat, search uses the native tools. On DeepSeek, search uses the Exa MCP server, because native search is pinned to `grok-4.6` and would spend that quota. `handoff` and `pull-handoff` pass a short brief to the next session. `capture-lesson` appends one rule to `~/.grok/lessons/LESSONS.md` after a real failure. The `profile-*`, `shelf-*`, and `mcp-design-*` skills are slash commands (`disable-model-invocation: true`).
+The two `deepseek-flash` rows exist because the tuner owns the global `default_reasoning_effort`. A single row would lose its high-effort preset every time the tuner pins the global default to `low`. The second row carries its own effort, which the tuner does not write.
+
+**Policy skills.** `route`, `delegate`, and `web-search` tell the agent which seat does which work. Native `web_search`/`web_fetch` are pinned to `deepseek-flash` (cheap, backend-search capable) and are the first choice; the Exa MCP server stays for deep research and as the fallback when a native call is denied or errors. `handoff` and `pull-handoff` pass a short brief to the next session. `capture-lesson` appends one rule to `~/.grok/lessons/LESSONS.md` after a real failure. `skill-router` keeps the optional shelf packs unlinked and loads only the 1–3 skills a task needs, on demand; it also carries the design-stack policy (Impeccable, Taste, Jakub, Emil). `product-build` is the end-to-end conductor: grill → spec → design gate → plan on pro → implement on flash → verify → review → handoff, with the detector as a hard gate. The `profile-*`, `shelf-*`, and `mcp-design-*` skills are slash commands (`disable-model-invocation: true`).
+
+**Continuity.** `start-grok.ps1` starts a hidden context watcher for interactive sessions. At 70% context it writes a handoff to `~/.grok/handoffs` and toasts **`/new`, then `/pull-handoff <file>`** — no exit needed. The watcher keeps running across `/new` and reminds the new session to load the handoff. A new process can use `-ResumeHandoff` instead. `capture-lesson` also refreshes `rules/03-lessons.md` (top 12 rules, loaded every session); a `SessionEnd` hook regenerates it.
+
+**Memory.** The hosted mem0 MCP server gives sessions a small cross-tool memory. The config holds only `X-API-Key = "${MEM0_API_KEY}"`; the key itself lives in a user environment variable. Retrieval is session-start and on-demand only — `rules/00-token-efficiency.md` keeps it token-lean.
 
 **Shelf.** Optional skill packs sit in `%USERPROFILE%\grok-skill-shelf\` and are linked into `~/.grok\skills` with directory junctions. Turning a pack off removes the junction. The files stay on disk. `shelf.ps1` is the implementation. Bring your own packs; the third-party packs used on the author's machine are not redistributed here.
 
 **Ledger.** `ledger.py` tails `unified.jsonl`, appends one row per `shell.turn.inference_done`, and prices DeepSeek traffic from the published card: cache hit $0.0028, cache miss $0.14, output $0.28, per million tokens. Rows attributed to other providers are recorded and kept out of that dollar total when `deepseek` is false. See `token-ledger/README.md` for the daemon commands.
 
 **Tuner.** Every 15 minutes `tuner.py` may raise a seat's `context_window` when the last day's average peak context exceeds 80% of the declared window, or a session compacts 3 or more times. The step is 64K, the bounds are 128K–512K, and a seat changes at most once per 24 hours. It can pin `default_reasoning_effort` to `low` when reasoning tokens exceed 20% of output. It can disable the Paper MCP server after repeated handshake failures. It does not raise effort, and it does not lower a window.
+
+**Isolation (Windows).** Grok's kernel sandbox is Linux/macOS only. On this host a PreToolUse `isolation-guard.py` restricts writes to the workspace, `%TEMP%`, and `~/.grok/handoffs`; denies reads/writes of `~/.ssh`, `~/.aws`, `~/.gnupg`, `~/.env`, and harness state (`auth.json`, `sessions`, `token-ledger`); denies destructive shell commands; checks subagent cwd; and inspects `use_tool` recursively. Feature work uses native git worktrees (`grok --worktree=<name>`). This is a guard, not a VM — untrusted code needs Windows Sandbox or a VM. See `rules/04-isolation.md`.
+
+**Gates and metrics.** Stop hooks layer the Impeccable design detector, the anti-slop block (changed UI files must be detector-clean), and an evidence gate (code changed → the final message must name a test command and result, or the exact blocker). `SessionEnd` appends one trajectory record per primary session to `~/.grok/metrics/sessions.jsonl` (turns, tool calls, context peak, tokens, duration, edit volume) and refreshes the lessons digest. `python ~/.grok/skills/skill-router/scripts/metrics-report.py` prints per-model averages. The pre-commit guard is installed per project with `install-design-guard.ps1`.
 
 **Checks.** `verify/verify_harness.py` parses all three configs and requires the same seat set and the same default, rejects retired seat names, checks that ports 8787, 8788, 8789, and 8791 have no listener, and checks the skill shelf. `verify/verify_skills.py` runs `grok inspect` and compares the enabled catalog to the sets at the top of the file. `verify/test_switch_carry.py` switches profiles against the live `config.toml` and restores the original bytes in a `finally` block. Run that one when you can afford a brief rewrite of the live file.
 
@@ -105,13 +139,36 @@ python "$env:USERPROFILE\.grok\verify\test_switch_carry.py"
 
 On a machine that has `~/grok-skill-shelf/core`, the harness check expects that pack to be linked and to contain `POLICY_SKILLS` plus `SHELF_CORE`. With no core shelf, it only requires the skills this repo ships.
 
+## Design gate (Pencil only)
+
+No UI code starts until the user has picked a direction. The flow is:
+
+1. Ask for references: URLs, screenshots, notes, or “use Inspo.”
+2. Run the design lane, which starts a child session with Pencil (and Inspo):
+   ```powershell
+   powershell -File "$env:USERPROFILE\.grok\skills\skill-router\scripts\design-lane.ps1" `
+     -Brief "<direction brief>" -Cwd . -Out .\design\directions\<name> `
+     -References "https://ref1, C:\refs\shot.png, editorial but not cream"
+   ```
+3. Review 2–3 canvas directions against `rules/02-design-gate.md`: hierarchy,
+   type, palette/contrast, spacing, one CTA, no banned tells, originality.
+   Fix or reject in the canvas before showing the user.
+4. The user picks in Pencil. Write `DESIGN.md` from the chosen frame.
+5. Choose the component library after the pick (React/Next → shadcn/ui + Radix
+   + Tailwind; Vue → Nuxt UI; Svelte → Skeleton; Angular → Spartan/NG-ZORRO).
+   One library, no component MCP, no full-kit dump.
+
+There is no HTML/CSS mockup stage and no review server. Inspo is the free
+reference source when the user has none; it is queryable over MCP and never
+copy-pasted 1:1.
+
 ## Decisions, with the failure that forced each one
 
 **The context window is raise-only.** `context_window` is the auto-compaction trigger, so lowering it does not shrink the prompt. It only compacts sooner. An earlier rule lowered the window under 40% utilization. On 16 Aug 2026 it moved every seat from 262144 to 196608, and a later pass moved them back. The lower path was removed on 10 Sep 2026. The author's windows are now pinned at 500000 in `overrides.toml`, inside the 128K–512K bounds, so the raise path stays armed and the pin keeps them off the 524288 cap.
 
 **The tuner refuses to write a config it cannot parse.** `tuner.py` runs `tomllib.loads` on the new text and prints `REFUSING to write invalid TOML` if parsing fails. The previous file stays. A timestamped `config.toml.bak-*` is written before the first automatic edit, and every applied change is appended to `changes.log`.
 
-**Quoted seat names need quoted override keys.** `[model."grok-4.5"]` is quoted because the id contains dots. The tuner strips the `model.` prefix only, so the override key is `'"grok-4.5"'`, quotes included. A bare `grok-4.5` key nests under the wrong table and the pin never matches.
+**Quoted seat names need quoted override keys.** A seat id that contains dots, such as `[model."my.seat"]`, is quoted in `config.toml`. The tuner strips the `model.` prefix only, so the override key is `'"my.seat"'`, quotes included. A bare `my.seat` key nests under the wrong table and the pin never matches.
 
 **Profile switches carry tuner state.** Copying `config.lean.toml` over `config.toml` used to wipe the windows and the reasoning default the tuner had just written. `carry_tuning.py` re-applies those keys after the template is installed. `test_switch_carry.py` is the regression test: it plants tuner state, switches, asserts the values survived, and restores the file byte for byte.
 
@@ -125,6 +182,6 @@ On a machine that has `~/grok-skill-shelf/core`, the harness check expects that 
 
 ## Scope
 
-Claim the routing policy, the profile and shelf switches, the ledger, the tuner, and the checks. The agent runtime is a third-party product. Skill packs such as the Matt Pocock set are used on the author's machine and are not included here; `SHELF_CORE` in the verifiers names them so a machine that has the shelf still has to match it.
+Claim the routing policy, the profile and shelf switches, the ledger, the tuner, the design lane, and the checks. The agent runtime is a third-party product. Pencil (pen.dev) and Inspo are third-party MCP servers; their tools, data, and terms are theirs. Skill packs such as the Matt Pocock set are used on the author's machine and are not included here; `SHELF_CORE` in the verifiers names them so a machine that has the shelf still has to match it.
 
 License: MIT.

@@ -9,7 +9,8 @@
 #   powershell -NoProfile -File $env:USERPROFILE\grok-skill-shelf\shelf.ps1 enable video
 #   powershell -NoProfile -File $env:USERPROFILE\grok-skill-shelf\shelf.ps1 enable extras
 #   powershell -NoProfile -File $env:USERPROFILE\grok-skill-shelf\shelf.ps1 enable firecrawl
-#   powershell -NoProfile -File $env:USERPROFILE\grok-skill-shelf\shelf.ps1 disable all|design|matt|video|extras|firecrawl
+#   powershell -NoProfile -File $env:USERPROFILE\grok-skill-shelf\shelf.ps1 enable pstack
+#   powershell -NoProfile -File $env:USERPROFILE\grok-skill-shelf\shelf.ps1 disable all|design|matt|video|extras|firecrawl|pstack
 #   powershell -NoProfile -File $env:USERPROFILE\grok-skill-shelf\shelf.ps1 enable all
 
 param(
@@ -18,7 +19,7 @@ param(
   [string]$Action,
 
   [Parameter(Position = 1)]
-  [ValidateSet('core', 'design', 'matt', 'matt-pocock', 'video', 'extras', 'firecrawl', 'all', '')]
+  [ValidateSet('core', 'design', 'matt', 'matt-pocock', 'video', 'extras', 'firecrawl', 'pstack', 'all', '')]
   [string]$Pack = ''
 )
 
@@ -34,10 +35,11 @@ $PackDirs = @{
   video     = Join-Path $ShelfRoot 'video'
   extras    = Join-Path $ShelfRoot 'extras'
   firecrawl = Join-Path $ShelfRoot 'firecrawl'   # config-driven pack (no skill folders)
+  pstack    = Join-Path $ShelfRoot 'pstack'      # pstack port (poteto-mode), 63 skills
 }
 
 # Junction-driven packs (their skills physically live in grok-skill-shelf/<pack>).
-$JunctionPacks = @('core', 'design', 'matt', 'video', 'extras')
+$JunctionPacks = @('core', 'design', 'matt', 'video', 'extras', 'pstack')
 
 # `all` deliberately excludes `core`: `/shelf-off` shelves the optional packs and
 # leaves the baseline in place. Use `enable core` / `disable core` explicitly.
@@ -64,8 +66,9 @@ function Resolve-PackKey {
     'video' { 'video' }
     'extras' { 'extras' }
     'firecrawl' { 'firecrawl' }
+    'pstack' { 'pstack' }
     'all' { 'all' }
-    default { throw "Unknown pack: $Name (use core, design, matt, video, extras, firecrawl, or all)" }
+    default { throw "Unknown pack: $Name (use core, design, matt, video, extras, firecrawl, pstack, or all)" }
   }
 }
 
@@ -198,9 +201,10 @@ function Show-Status {
     matt      = 'matt-pocock'
     video     = 'video'
     extras    = 'extras'
+    pstack    = 'pstack'
     firecrawl = 'firecrawl'
   }
-  foreach ($key in @('core', 'design', 'matt', 'video', 'extras')) {
+  foreach ($key in @('core', 'design', 'matt', 'video', 'extras', 'pstack')) {
     $skills = @(Get-PackSkillDirs $key)
     $on = 0
     foreach ($s in $skills) {
@@ -219,8 +223,8 @@ function Show-Status {
   $fcState = if (Test-FirecrawlEnabled) { 'ON' } else { 'OFF' }
   Write-Host ("  {0,-12} {1,-14} (config-shelved via [skills] disabled)" -f 'firecrawl', $fcState)
   Write-Host ""
-  Write-Host "Enable:  shelf.ps1 enable core|design|matt|video|extras|firecrawl|all"
-  Write-Host "Disable: shelf.ps1 disable core|design|matt|video|extras|firecrawl|all"
+  Write-Host "Enable:  shelf.ps1 enable core|design|matt|video|extras|firecrawl|pstack|all"
+  Write-Host "Disable: shelf.ps1 disable core|design|matt|video|extras|firecrawl|pstack|all"
   Write-Host "('all' = the optional packs; core is toggled on its own)"
   Write-Host "After enable/disable: wait a few seconds, or type / to refresh slash skills."
   Write-Host "If the agent still ignores the pack, start a new session (fallback)."
@@ -232,11 +236,11 @@ if ($Action -eq 'status') {
 }
 
 if ([string]::IsNullOrWhiteSpace($Pack)) {
-  throw "Pack required for $Action (core, design, matt, video, extras, firecrawl, or all)"
+  throw "Pack required for $Action (core, design, matt, video, extras, firecrawl, pstack, or all)"
 }
 
 $resolved = Resolve-PackKey $Pack
-$keys = if ($resolved -eq 'all') { @('design', 'matt', 'video', 'extras', 'firecrawl') } else { @($resolved) }
+$keys = if ($resolved -eq 'all') { @('design', 'matt', 'video', 'extras', 'firecrawl', 'pstack') } else { @($resolved) }
 
 foreach ($k in $keys) {
   if ($k -eq 'firecrawl') {

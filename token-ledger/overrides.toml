@@ -9,10 +9,8 @@
 [context_window]
 deepseek-flash = 500000
 deepseek-flash-high = 500000
-# These two seats are declared as [model."grok-4.5"] and the tuner strips only the
-# "model." prefix, so the key it looks up still carries the quote characters.
-'"grok-4.5"' = 500000
-'"grok-4.6"' = 500000
+deepseek-pro = 500000
+glm-flash = 500000
 
 # [reasoning]
 # default_reasoning_effort = "low"
